@@ -1,1 +1,88 @@
 # ANOVA_1
+
+# Data Frame Creation
+data <- data.frame(
+  'c1' = c(264,260,258,241,262,255),
+  'c2' = c(208,220,216,200,213,206),
+  'c3' = c(220,263,219,225,230,228),
+  'c4' = c(217,226,215,224,220,222)
+)
+
+# Column Summation
+sum_row <- colSums(data, na.rm = TRUE)
+
+# Count Non-NA Values
+count_row <- colSums(!is.na(data))
+
+# Calculate Column Means
+division_row <- sum_row / count_row
+
+# Column Variance
+variance_row <- apply(data, 2, function(x) var(x, na.rm = TRUE))
+
+# Adding Rows to Data Frame
+data2 <- rbind(Sumatorio = sum_row, Conteo = count_row, media = division_row, Varianza = variance_row)
+
+# Pooled Variance Calculation
+sum_weighted_variances <- sum(sapply(data, function(x) {
+  (length(na.omit(x)) - 1) * var(x, na.rm = TRUE)
+}))
+
+sum_degrees_of_freedom <- sum(sapply(data, function(x) {
+  length(na.omit(x)) - 1
+}))
+
+pooled_variance <- sum_weighted_variances / sum_degrees_of_freedom
+
+# Q Calculation
+log_var_individuals <- sapply(data, function(x) (length(na.omit(x)) - 1) * log(var(x, na.rm = TRUE)))
+sum_log_var_individuals <- sum(log_var_individuals)
+log_pooled_variance <- sum(sapply(data, function(x) (length(na.omit(x)) - 1))) * log(pooled_variance)
+q <- log_pooled_variance - sum_log_var_individuals
+
+# C Calculation
+k <- ncol(data)
+sum_inverse_degrees_of_freedom <- sum(sapply(data, function(x) 1 / (length(na.omit(x)) - 1)))
+inverse_sum_degrees_of_freedom <- 1 / sum(sapply(data, function(x) length(na.omit(x)) - 1))
+c <- 1 + (1 / (3 * (k - 1))) * (sum_inverse_degrees_of_freedom - inverse_sum_degrees_of_freedom)
+
+# X0 Calculation
+x_0 = q/c
+
+# Chi-Square Critical Value
+alpha <- 0.01
+df <- 3  # Replace 3 with your degrees of freedom
+chi_square_critical <- qchisq(1 - alpha, df)
+
+# Bartlett's Test Application
+bartlett_result <- bartlett.test(data)
+
+# ANOVA Calculations
+# Total Sum of Squares (SSTotal)
+sum_squares <- sum(sapply(data, function(x) sum(x^2, na.rm = TRUE)))
+total_sum <- sum(sapply(data, sum, na.rm = TRUE))^2
+N <- sum(sapply(data, function(x) length(na.omit(x))))
+SSTotal <- sum_squares - (total_sum / N)
+
+# Treatment Sum of Squares (SSTratamientos)
+sum_squares_treatments <- sum(sapply(data, function(x) sum(na.omit(x))^2 / length(na.omit(x))))
+total_sum_squared <- total_sum^2 / N
+SSTratamientos <- sum_squares_treatments - total_sum_squared
+
+# Error Sum of Squares (SSError)
+SSError <- SSTotal - SSTratamientos
+
+# ANOVA Table Creation
+anova_table <- data.frame(
+  'Fuente de variación' = c('Tratamientos (Entre)', 'Errores (Dentro)', 'Total'),
+  'S.S.' = c(SSTratamientos, SSError, SSTotal),
+  'g.l.' = c('k-1=3', 20, 23),
+  'C.M.' = c(SSTratamientos/3, SSError/20, NA), # NA for Total as CM is not calculated for Total
+  'F' = c((SSTratamientos/3)/(SSError/20), NA, NA) # NA for errors and total where F value is not applicable
+)
+
+# Critical F-Value Calculation
+alpha <- 0.1
+df_treatments <- 3
+df_error <- 20
+f_critical_value <- qf(1 - alpha, df_treatments, df_error)
